@@ -13,7 +13,8 @@ import re
 import os
 import platform
 from AdvancedHTMLParser import AdvancedHTMLParser
-
+import json
+from collections import OrderedDict
 
 class AsyncSpider(object):
     """A simple class of asynchronous spider."""
@@ -74,14 +75,26 @@ class GetSpider(AsyncSpider):
         raise gen.Return(response)
     
     def handle_content(self, html):
-        pattern = r'\"\bbulletinType\b\"\:\"(\w+)\"\,\"\bproductCode\b\"\:\"(\w+)\"\,\"\bproductName\b\"\:\"([\*]{0,2}\w+)\"\,\"\bseq\b\"\:(\d+)\,\"\bshowDate\b\"\:\"(\d{4}-\d{2}-\d{2})\"\,\"\bstopDate\b\"\:\"(\d{4}-\d{2}-\d{2}|[-])\"\,\"\bstopReason\b\"\:\"([-\w]+)\"\,\"\bstopTime\b\"\:\"(\w*(\d{4}-\d{2}-\d{2}\w*){1,2}|\w+)\"'
         htmlstr = html.decode('utf-8').strip()
-        htmlstr = htmlstr[htmlstr.rindex('result')::]
-        m = re.findall(pattern, htmlstr)
-        self.show_record('\nbulletinType, productCode, productName, seq, showDate, stopDate, stopReason, stopTime')
-        for item in m:
-            self.show_record(item)
-        self.show_record('\n--------------------------------------------------------- %d results in all -------------------------------------------------------' % len(m))
+        htmlstr = htmlstr[htmlstr.rindex('"result":') + len('"result":') : htmlstr.rindex('],') + 1]
+        data = json.loads(htmlstr)   
+
+        isHead = False
+        for dic in data:
+            t = OrderedDict(sorted(dic.items(),key = lambda t:t[0]))
+            if not isHead:
+                self.show_record(list(t.keys()))
+            isHead = True
+            self.show_record(list(t.values()))
+        self.show_record('\n--------------------------------------------------------- %d results in all -------------------------------------------------------' % len(data))
+
+        #pattern = r'\"\bbulletinType\b\"\:\"(\w+)\"\,\"\bproductCode\b\"\:\"(\w+)\"\,\"\bproductName\b\"\:\"([\*]{0,2}\w+)\"\,\"\bseq\b\"\:(\d+)\,\"\bshowDate\b\"\:\"(\d{4}-\d{2}-\d{2})\"\,\"\bstopDate\b\"\:\"(\d{4}-\d{2}-\d{2}|[-])\"\,\"\bstopReason\b\"\:\"([-\w]+)\"\,\"\bstopTime\b\"\:\"(\w*(\d{4}-\d{2}-\d{2}\w*){1,2}|\w+)\"'
+        #htmlstr = html.decode('utf-8').strip()
+        #htmlstr = htmlstr[htmlstr.rindex('result')::]
+        #m = re.findall(pattern, htmlstr)
+        #self.show_record('\nbulletinType, productCode, productName, seq, showDate, stopDate, stopReason, stopTime')
+        #for item in m:
+        #    self.show_record(item)
 
 
 
