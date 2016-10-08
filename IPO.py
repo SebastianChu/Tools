@@ -35,7 +35,7 @@ def getTradeDay():
     elif now.weekday() == 6:
         return (now - datetime.timedelta(2)).strftime("%Y-%m-%d")
     else: 
-        return (now - datetime.timedelta(7)).strftime("%Y-%m-%d")
+        return now.strftime("%Y-%m-%d")
 
 
 def loadIpoInfo():
