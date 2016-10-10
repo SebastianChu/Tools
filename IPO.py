@@ -1,27 +1,29 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+import datetime
 import requests
-import re
+import json
+import string
 import math
 import random
-import datetime
-import json
-import os
-import string
+
 
 class IpoDetail(object):
     """A simple class of IPO detail information."""
+    
     def __init__(self, item):
         self.name = item[3]
         self.code = item[4]
         self.applyCode = item[5]
         self.totalIssueVolumn = 0 if item[6] == '' else float(item[6])
         self.onlineIssueVolumn = 0 if item[7] == '' else float(item[7])
-        self.issuePrice = 0 if item[10] == '' else float(item[10]) 
+        self.issuePrice = 0 if item[10] == '' else float(item[10])
         self.applyDate = item[11]
         self.issueDate = item[12]
-        self.issuePE = 0 if item[14] == '' else float(item[14]) 
-        self.hitRate = 0 if item[15] == '' else float(item[15]) 
-        #print (self.applyDate + " " + self.issueDate)        
-        
+        self.issuePE = 0 if item[14] == '' else float(item[14])
+        self.hitRate = 0 if item[15] == '' else float(item[15])
+
 
 TIME_OUT = 30
 ipoDetailDict = {}
@@ -38,23 +40,23 @@ def getTradeDay():
         return now.strftime("%Y-%m-%d")
 
 
-def loadIpoInfo():
-    '''example urls
-    'http://datainterface.eastmoney.com/EM_DataCenter/JS.aspx?type=NS&sty=NSSTV5&st=12&sr=-1&p=2&ps=50&js=var%20OZrNiRKx={pages:(pc),data:[(x)]}&stat=1&rt=4917635'
-    'http://datainterface.eastmoney.com/EM_DataCenter/JS.aspx?type=NS&sty=NSSTV5&st=12&sr=-1&p=3&ps=50&js=var%20qhObDDyl={pages:(pc),data:[(x)]}&stat=1&rt=4917637'
+def loadIpoInfo(date):
+    '''
+    example urls: http://datainterface.eastmoney.com/EM_DataCenter/JS.aspx?type=NS&sty=NSSTV5&st=12&sr=-1&p=2&ps=50&js=var%20OZrNiRKx={pages:(pc),data:[(x)]}&stat=1&rt=4917635
     '''
     urlStr = 'http://datainterface.eastmoney.com/EM_DataCenter/JS.aspx?type=NS&sty=NSSTV5&st={}&sr={}&p={}&ps={}&js={}&stat={}&rt={}'\
-             .format(12, -1, 1, 50, 'var%20'+ ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(8)) +'={pages:(pc),data:[(x)]}'\
+             .format(12, -1, 1, 500, 'var%20'+ ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(8)) +'={pages:(pc),data:[(x)]}'\
                      , 1, int(math.floor(random.random() * (100000000 + 1))))
-    #print(urlStr)
+    print('数据来源：{}'.format(urlStr))
     response = requests.get(urlStr, timeout=TIME_OUT)
     if response.status_code == 200:
         r = response.text[response.text.find('["') :response.text.rindex('"]') + 2]
-        jsonLst = eval(r)
-        #tempDict = dict()
-        for item in jsonLst:
+        contentLst = eval(r)
+        dataLst = []
+        for item in contentLst:
             detailItem = IpoDetail(item.split(','))
             ipoDetailDict[detailItem.code] = detailItem
+            dataLst.append(toJson(detailItem))
             if detailItem.applyDate in dailyIpoCodeDict.keys():
                 dailyIpoCodeDict[detailItem.applyDate].append(detailItem.code)
             else:
@@ -64,16 +66,27 @@ def loadIpoInfo():
                 dailyLotteryCodeDict[detailItem.issueDate].append(detailItem.code)
             else:
                 dailyLotteryCodeDict[detailItem.issueDate] = [detailItem.code]
-
         #dailyIpoCodeDict = sorted(tempDict.items(), reverse = True) 
         print('IPO detail items: {}'.format(len(ipoDetailDict)))
+
+        data = json.loads('[{}]'.format(','.join(dataLst)))
     else:
         print('Response Status Code: {}'.format(response.status_code))
         response.raise_for_status()
-    
+
+
+def toJson(obj):
+    """summary: 将object转换成dict类型"""
+    memberlist = [m for m in dir(obj)]
+    _dict = {}
+    for m in memberlist:
+        if m[0] != "_" and not callable(m):
+            _dict[m] = getattr(obj, m)
+    return json.dumps(_dict, ensure_ascii=False)   
+
 
 def getSecuritiesCode(date):
-    print('date: {}'.format(date))
+    print('Trading day: {}'.format(date))
     if date in dailyIpoCodeDict.keys():
         for code in dailyIpoCodeDict[date]:
             print('申购 {} 代码: {}, 申购代码: {} '.format(ipoDetailDict[code].name, code, ipoDetailDict[code].applyCode))
@@ -92,10 +105,10 @@ def getSecuritiesCode(date):
     sum = 0
     for code in lotteryLst:
         print('代码：{}'.format(code))
-        lotteryCode = input('请输入起始配号：')
-        count = input('请输入配号个数：')
-        sum += getSecurityWinningCode(code, lotteryCode, count)
-    print('共需余额：{}元'.format(sum))
+        lotteryCode = input(u'请输入起始配号：')
+        count = input(u'请输入配号个数：')
+        sum += getSecurityWinningCode(code, str(lotteryCode), count)
+    print('共需为新股预留余额：{}元'.format(sum))
 
 
 def getSecurityWinningCode(code, ownCode, count):
@@ -103,14 +116,8 @@ def getSecurityWinningCode(code, ownCode, count):
     secUrl = 'http://datainterface.eastmoney.com/EM_DataCenter/JS.aspx?type=MD&sty=MDTOR&code={}'.format(code)
     r = requests.get(secUrl, timeout=TIME_OUT)
     if r.status_code == 200:
-        #双引号
-        #print(r.text[r.text.find('[') + 1: r.text.rindex(']')])
-        #print(jsonLikeStr)
-        #print(list(r.text)) 
-        #print(json.loads(list(r.text)))
-        
-        jsonLikeStr = r.text[r.text.find('[{"'): r.text.rindex('"}]') + 3]
-        d = eval(jsonLikeStr)
+        contentStr = r.text[r.text.find('[{"'): r.text.rindex('"}]') + 3]
+        d = eval(contentStr)
         winningCode = dict()
         for item in d:
             if('name' in item.keys() and 'value' in item.keys()):
@@ -129,6 +136,8 @@ def getSecurityWinningCode(code, ownCode, count):
                 return 0
             balance = ipoDetailDict[code].issuePrice * times * len(winList)
             print('需为此新股留下余额：{}元\n'.format(balance))
+        else:
+            print('今日没有中签号')
     else:
         print('Response Status Code: {}'.format(r.status_code))
         r.raise_for_status()
@@ -136,26 +145,22 @@ def getSecurityWinningCode(code, ownCode, count):
 
 
 def matchSecurityWinningCode(dictCode, ownCode, length = 1):
-    winningLst = list()
+    winningLst = []
     while (length > 0):
-        for key in dictCode:
-            for item in dictCode[key]:
-                if (ownCode[-key:] == item):
+        for lengthKey in dictCode:
+            for item in dictCode[lengthKey]:
+                if (item and ownCode[-lengthKey:] == item):
                     winningLst.append(ownCode)
                     print('中签号： {}'.format(ownCode))                
         length -= 1
         ownCode = str(int(ownCode) + 1)
-    pass
-    if (len(winningLst) == 0):
-        print('无中签号')
     return winningLst
 
 def main():
-    loadIpoInfo()
     date = getTradeDay()
+    loadIpoInfo(date)
     getSecuritiesCode(date)
 
 
 if __name__ == '__main__':
     main()
-
