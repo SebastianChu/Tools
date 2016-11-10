@@ -104,7 +104,7 @@ def getSecuritiesCode(date):
 
     sum = 0
     for code in lotteryLst:
-        print('代码：{}'.format(code))
+        print('申购代码：{}, {}'.format(ipoDetailDict[code].applyCode, ipoDetailDict[code].name))
         lotteryCode = input(u'请输入起始配号：')
         count = input(u'请输入配号个数：')
         sum += getSecurityWinningCode(code, str(lotteryCode), count)
