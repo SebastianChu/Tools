@@ -3,14 +3,15 @@
 #include <vector>
 
 const std::string capitalChatater[10] = { "零","壹","贰","叁","肆","伍","陆","柒","捌","玖" };
-const std::string lowRate[4] = { "","拾","佰","仟" };
 const std::string highRate[3] = { "万","亿","兆" };
 const std::string ptrRate[4] = { "", "角","分","厘" };
+std::vector<std::string> lowRate = { "","拾","佰","仟" };
 
 std::string GetCapitalNumber(std::string orgStr);
 std::string processInteger(std::string intStr);
 std::string processInteger(std::string intStr);
 std::string processPointNumber(std::string ptrStr);
+std::string filterEmptyPosition(std::string numStr);
 bool IsDividedPosition(const std::vector<std::string> &rtnVec, int idx);
 
 std::string GetCapitalNumber(std::string orgStr)
@@ -19,7 +20,7 @@ std::string GetCapitalNumber(std::string orgStr)
 	bool legalFlag = false;
 	for (int j = 0; j < orgStr.size(); ++j)
 	{
-		if (orgStr[j] >= '0' && orgStr[j] <= '9' 
+		if (orgStr[j] >= '0' && orgStr[j] <= '9'
 			|| j == 0 && orgStr[0] == '-')
 		{
 			legalFlag = true;
@@ -98,18 +99,19 @@ std::string processInteger(std::string intStr)
 		{
 			rtnVec.push_back(highRate[1]);	//亿
 			adjustIdx += 4;
+			lowRate.push_back("万");
 		}
 		if (intStr.size() - 1 - i == 13)
 		{
 			rtnVec.push_back(highRate[2]);	//兆
 			adjustIdx += 5;
+			lowRate.push_back("亿");
 		}
-
 
 		if (capitalIdx > 0)
 		{
 			int lowIdx = intStr.size() - 1 - adjustIdx - i;
-			if (lowIdx >= 0 && lowIdx < sizeof(lowRate) / sizeof(lowRate[0]))
+			if (lowIdx > 0 && lowIdx < lowRate.size())
 			{
 				rtnVec.push_back(lowRate[lowIdx]);
 			}
@@ -118,15 +120,19 @@ std::string processInteger(std::string intStr)
 		lastIndex = capitalIdx;
 
 	}
+
 	for (int i = rtnVec.size() - 1; i >= 0; i--)
 	{
-		if ((i == 0 || IsDividedPosition(rtnVec, i - 1)) && rtnVec[i] == "零")
+		if (rtnVec[i] == "零")
 		{
-			continue;
+			if (i == 0 || IsDividedPosition(rtnVec, i - 1))
+			{
+				continue;
+			}
 		}
 		rtnStr += rtnVec[i];
 	}
-	return rtnStr += "元";
+	return filterEmptyPosition(rtnStr);
 }
 
 std::string processPointNumber(const std::string ptrStr)
@@ -170,6 +176,20 @@ bool IsDividedPosition(const std::vector<std::string> &rtnVec, int idx)
 		}
 	}
 	return false;
+}
+
+std::string filterEmptyPosition(std::string numStr)
+{
+	for (int i = 1; i < sizeof(highRate) / sizeof(highRate[0]); ++i)
+	{
+		std::string tempStr = highRate[i] + highRate[i - 1];
+		int idx = numStr.find(tempStr);
+		if (idx >= 0)
+		{
+			numStr = numStr.replace(numStr.find(tempStr), tempStr.length(), highRate[i] + "零");
+		}
+	}
+	return numStr += "元";
 }
 
 int main()
